@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Updated Menu Quiz</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      text-align: center;
+      max-width: 600px;
+      width: 100%;
+    }
+    button {
+      margin: 8px;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .correct-btn { background-color: #28a745; }
+    .incorrect-btn { background-color: #007bff; }
+    .neutral-btn { background-color: #6c757d; }
+    #question { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+    #answer { font-size: 18px; display: none; margin-top: 10px; }
+  </style>
+
+<style id="theme-style">
+  body.light-mode {
+    background: #f2f2f2;
+    color: #000;
+  }
+  body.dark-mode {
+    background: #121212;
+    color: #f0f0f0;
+  }
+  .card {
+    background: inherit;
+    color: inherit;
+  }
+  button {
+    color: white;
+  }
+</style>
+
+</head>
+<body>
+  <div class="card">
+
+<button class="neutral-btn" onclick="toggleDarkMode()">Toggle Dark Mode</button>
+<script>
+function toggleDarkMode() {
+  const body = document.body;
+  if (body.classList.contains("dark-mode")) {
+    body.classList.remove("dark-mode");
+    body.classList.add("light-mode");
+    localStorage.setItem("quiz_theme", "light");
+  } else {
+    body.classList.add("dark-mode");
+    body.classList.remove("light-mode");
+    localStorage.setItem("quiz_theme", "dark");
+  }
+}
+
+window.onload = function() {
+  const theme = localStorage.getItem("quiz_theme") || "light";
+  document.body.classList.add(theme + "-mode");
+  shuffle();
+  toggleScore();
+};
+</script>
+
+    <div id="question">Loading...</div>
+    <div id="answer"></div>
+    <button class="neutral-btn" onclick="showAnswer()">Show Answer</button>
+    <button class="correct-btn" onclick="correct()">Correct</button>
+    <button class="incorrect-btn" onclick="incorrect()">Incorrect</button>
+    <button class="neutral-btn" onclick="nextCard()">Next</button>
+    <button class="neutral-btn" onclick="reviewMode()">Review Mode</button>
+    <br>
+    <label><input type="checkbox" id="trackScoreToggle" onchange="toggleScore()"> Track Score</label>
+    <br>
+    <label>Question Limit: <input id="questionLimit" type="number" min="1" max="100" value="10"></label>
+    <div id="scoreDisplay"></div>
+    <canvas id="scoreChart" width="400" height="200" style="margin-top: 20px;"></canvas>
+  </div>
+<script>
+const fullSet = [["What is in the Ahi Tuna Tacushi?", "Cilantro, Spicy Mayo, Crispy Wonton, Tobiko"], ["What is in the Crab Cakes?", "Jumbo Lump Crab, Arugula, Garlic Aioli"], ["What is in the Calamari?", "Flash Fried Calamari Steaks, Lemon Beurre Blanc, Capers, Cherry Tomatoes, Lemon"], ["What is in the Grilled Octopus?", "Spinach, Arugula, Cherry Tomato, Feta Cream, Lemon Sumac"], ["What is in the Mussels Diablo?", "Garlic Butter, White Wine, Cherry Tomatoes, Peppers, Crostini"], ["What is in the Woodward Steak Tips?", "Filet, Caramelized Onion, Mushroom, Blue Cheese, Zip Sauce"], ["What is in the Truffle Burrata & Heirloom Tomato?", "Burrata, Heirloom Tomato, Balsamic Glaze, Grilled Crostini, Prosciutto"], ["What is in the Brussels Sprouts?", "White Balsamic, Red Onion, Truffle Vinaigrette, Parmesan"], ["What types of sliders are on the menu?", "Wagyu Beef, Crab Cake, Short Rib"], ["What is in the Shrimp & Grits?", "Hominy Grits, Jumbo Shrimp, Garlic White Wine Butter"], ["What is in the Hummus, Zaatar Pita & Vegetables?", "Olive Oil, Kalamata Olive, Paprika"], ["What is in the Savory Jumbo Meatballs?", "Two Jumbo Meatballs, Roasted Tomato, Ricotta, Fresh Basil"], ["What is in the Sticky Ribs?", "Hoisin Glaze, Chipotle Slaw, Sesame Seeds"], ["What is in the Crab Stuffed Mushrooms?", "Bell Pepper, Panko, Cheddar, Dijon Cream"], ["What is in the Seared Diver Scallops?", "Jumbo Scallops, Parsnip Puree, Pancetta, Asparagus Tips"], ["What is in the Chicken Beurre Blanc?", "Airline Chicken, Asparagus, Roasted Mushrooms, Sauteed Spinach, Fingerling Potatoes, Lemon Beurre Blanc"], ["What is in the Short Ribs?", "Grits, Roasted Brussels, Pickled Cabbage, Au Jus"], ["What is in the Steak Frites?", "Sliced Filet, Rosemary Tallis, Parmesan Truffle Fries, Zip Sauce"], ["What proteins can you add to salads?", "Prime Filet, Grilled Shrimp, Salmon, Grilled Chicken"], ["What is in the Chopped Wedge?", "Applewood Smoked Bacon, Red Onion, Grape Tomato, Hard Boiled Egg, Blue Cheese, Jalapeno Ranch"], ["What is the Happy Hour special on oysters?", "$1 each"], ["What is in the Hummus, Zaatar Pita Chips and Veggies?", "Olive Oil, Paprika, Crispy Chickpeas"], ["What sliders are available at Happy Hour?", "Wagyu Beef, Short Rib, or Crab Cake"], ["What is in the Margherita Flatbread?", "Vine Ripe Tomato, Basil, Garlic, Fresh Mozzarella, EVOO"], ["What is in the Truffle Frites?", "French Fries, Truffle Oil"], ["What is in the Spicy Margarita?", "Casamigos Blanco, Fresh Lime Juice, Orange Liquor, Muddled Jalapeno, Agave, Tajin Rim"], ["What is in the Bistro Old Fashioned?", "Bourbon, Angostura Bitters, Simple Syrup, Orange Peel, Cherry"], ["What is in the Manhattan?", "Bourbon, Sweet Vermouth, Bitters"], ["What is in the Market Espresso Martini?", "Vanilla Vodka, Coffee Liquor, Espresso"], ["What is in the Woodward Cosmo?", "Titos, Triple Sec, Pama Liquor, Lime Juice"], ["What is in the Avocado Toast App?", "Caper, Guacamole, Arugula, Cherry Tomatoes, Avocado, Red Onion, Capers"], ["What are Ralphs Signature Scones served with?", "Butter, Jam, Whipped Cream"], ["What is in the Shrimp & Grits?", "Hominy Grits, Jumbo Tiger Shrimp, Garlic White Wine Butter Sauce"], ["What is in the Fresh Fruit Bowl?", "Seasonal Fruit Assortment"], ["What is in the Ultimate French Toast?", "Berries, Apple Sauce, Maple Syrup, Vanilla Ice Cream"], ["What is in the Peanut Butter & Banana French Toast?", "Fresh Ground Peanut Butter, Maple Syrup, Vanilla Ice Cream"], ["What is in the Berry Waffle Tower?", "Three Mini Belgian Waffles, Berries, Whipped Cream"], ["What is in the Buttermilk Pancakes?", "Maple Syrup, Fresh Berries"], ["What is in the Blueberry Lemon Ricotta Pancakes?", "Creamy Lemon Ricotta Pancakes, Strawberries, Blueberries, Lemon Zest, Maple Syrup"], ["What is in the Farmer's Grub?", "Applewood Smoked Bacon, Sausage or Ham, Cheddar Cheese, Breakfast Potatoes"]]; [["What is in the Ahi Tuna Tacushi?", "Cilantro, Spicy Mayo, Crispy Wonton, Tobiko"], ["What is in the Crab Cakes?", "Jumbo Lump Crab, Arugula, Garlic Aioli"], ["What is in the Calamari?", "Flash Fried Calamari Steaks, Lemon Beurre Blanc, Capers, Cherry Tomatoes, Lemon"], ["What is in the Grilled Octopus?", "Spinach, Arugula, Cherry Tomato, Feta Cream, Lemon Sumac"], ["What is in the Mussels Diablo?", "Garlic Butter, White Wine, Cherry Tomatoes, Peppers, Crostini"], ["What is in the Woodward Steak Tips?", "Filet, Caramelized Onion, Mushroom, Blue Cheese, Zip Sauce"], ["What is in the Truffle Burrata & Heirloom Tomato?", "Burrata, Heirloom Tomato, Balsamic Glaze, Grilled Crostini, Prosciutto"], ["What is in the Brussels Sprouts?", "White Balsamic, Red Onion, Truffle Vinaigrette, Parmesan"], ["What types of sliders are on the menu?", "Wagyu Beef, Crab Cake, Short Rib"], ["What is in the Shrimp & Grits?", "Hominy Grits, Jumbo Shrimp, Garlic White Wine Butter"]];
+let shuffled = [], current = 0;
+let score = parseInt(localStorage.getItem("menu_quiz_score") || "0");
+let total = parseInt(localStorage.getItem("menu_quiz_total") || "0");
+let trackScore = false;
+let history = JSON.parse(localStorage.getItem("menu_quiz_history") || "[]");
+
+function shuffle() {
+  const limit = parseInt(document.getElementById("questionLimit").value) || 10;
+  shuffled = fullSet.sort(() => 0.5 - Math.random()).slice(0, limit);
+  current = 0;
+  updateCard();
+}
+
+function updateCard() {
+  document.getElementById("question").innerText = shuffled[current][0];
+  document.getElementById("answer").innerText = shuffled[current][1];
+  document.getElementById("answer").style.display = "none";
+}
+
+function showAnswer() {
+  document.getElementById("answer").style.display = "block";
+}
+
+function correct() {
+  if (trackScore) {
+    score++; total++;
+    localStorage.setItem("menu_quiz_score", score);
+    localStorage.setItem("menu_quiz_total", total);
+  }
+  nextCard();
+}
+
+function incorrect() {
+  if (trackScore) {
+    total++;
+    localStorage.setItem("menu_quiz_total", total);
+  }
+  nextCard();
+}
+
+function nextCard() {
+  current++;
+  if (current >= shuffled.length) {
+    alert("End of quiz.");
+    return;
+  }
+  updateCard();
+}
+
+function toggleScore() {
+  trackScore = document.getElementById("trackScoreToggle").checked;
+  document.getElementById("scoreDisplay").innerText = trackScore ? `Score: ${score} / ${total}` : "";
+}
+
+function reviewMode() {
+  shuffled = [...fullSet];
+  current = 0;
+  updateCard();
+}
+
+window.onload = function() {
+  shuffle();
+  toggleScore();
+};
+</script>
+</body>
+</html>
