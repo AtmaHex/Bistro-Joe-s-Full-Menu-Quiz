@@ -1,0 +1,256 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Menu Quiz (Review Mode + UI Upgrade)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(to right, #e0eafc, #cfdef3);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+  }
+  .card {
+    background-color: #fff;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    width: 100%;
+    max-width: 650px;
+    text-align: center;
+    transition: transform 0.3s ease;
+  }
+  .card:hover {
+    transform: scale(1.01);
+  }
+  #question {
+    font-size: 22px;
+    font-weight: 600;
+    color: #222;
+    margin-bottom: 20px;
+  }
+  #answer {
+    font-size: 18px;
+    color: #444;
+    margin-top: 15px;
+    display: none;
+  }
+  .buttons {
+    margin-top: 20px;
+  }
+  button {
+    margin: 6px 8px;
+    padding: 12px 24px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  .correct-btn { background-color: #28a745; }
+  .correct-btn:hover { background-color: #218838; }
+  .incorrect-btn { background-color: #007BFF; }
+  .incorrect-btn:hover { background-color: #0056b3; }
+  .neutral-btn { background-color: #6c757d; }
+  .neutral-btn:hover { background-color: #5a6268; }
+  .setting {
+    margin-top: 15px;
+  }
+  #scoreDisplay, #historyDisplay {
+    margin-top: 20px;
+    font-size: 16px;
+    color: #333;
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="card">
+    <div id="question">Loading...</div>
+    <div id="answer"></div>
+    <div class="buttons">
+      <button class="neutral-btn" onclick="showAnswer()">Show Answer</button>
+      <button class="correct-btn" onclick="correct()">Correct</button>
+      <button class="incorrect-btn" onclick="incorrect()">Incorrect</button>
+      <button class="neutral-btn" onclick="nextCard()">Next</button>
+      <button class="neutral-btn" onclick="reviewMode()">Review Mode</button>
+    </div>
+    <div class="setting">
+      <label>Track Score: <input type="checkbox" id="trackScoreToggle" onchange="toggleScore()"></label>
+    </div>
+    <div class="setting">
+      <label>Question Limit: <input type="number" id="questionLimit" min="1" max="50" value="15" style="width: 60px;"></label>
+    </div>
+    <div id="scoreDisplay" style="display:none;">Score: 0/0</div>
+    <button class="neutral-btn" onclick="resetScore()">Reset Score</button>
+    <div id="historyDisplay"></div>
+    <canvas id="scoreChart" width="400" height="200" style="margin-top:20px;"></canvas>
+  </div>
+<script>
+const fullSet = [["What is the price of oysters during Happy Hour?", "$2 each"], ["What is in the Hummus & Fresh Veggies?", "Olive Oil, Paprika, Crispy Chickpeas"], ["What is in the P.E.I. Mussels?", "Garlic, Lemon, Pesto Crema, Ciabatta"], ["What is in the Pamatini?", "Titos, Triple Sec"], ["What is in the Hummus & Za'atar Pita Chips?", "Olive Oil, Paprika, Crispy Chickpeas"], ["What is in the Wagyu Beef Sliders?", "Farmhouse Cheddar, Lettuce, Tomato, Caramelized Onions, Brioche Bun, Bistro Sauce, Frites"], ["What is in the Margherita Flatbread?", "Vine Ripe Tomato, Basil, Garlic, Fresh Mozzarella, EVOO"], ["What is in the Short Rib Benny?", "Poached Eggs, Braised Beef Short Rib, Crispy Fried Onions, Hollandaise, Toasted Ciabatta, Breakfast Potatoes"], ["What is in the Shrimp & Grits?", "Hominy Grits, Jumbo Shrimp, Garlic White Wine Butter"], ["What is in the BLTE&A?", "Bacon, Lettuce, Tomato, Egg and Avocado Aioli on White Toast with Pomme Frites"], ["What is in the Wild Mushroom Omelet?", "Caramelized Onions, White Cheddar, Breakfast Potatoes"], ["What is in the Sticky Ribs?", "Hoisin Glaze, Chipotle Slaw, Sesame Seeds, Scallion"], ["What is in the Cosmo?", "Titos, Triple Sec, Cranberry, Lime"], ["What is in the Breakfast Flatbread?", "Sausage, Bacon, Caramelized Onion, Peppers, Mozzarella, Parmesan, Sunny Side Up Eggs"], ["What is in the Chocolate Caramel Cake?", "Four Layers of Chocolate Cake, Caramel Flavored Buttercream, Chocolate Ganache"]];
+let shuffled = [];
+let current = 0;
+let score = parseInt(localStorage.getItem("menu_quiz_score") || "0");
+let total = parseInt(localStorage.getItem("menu_quiz_total") || "0");
+let trackScore = false;
+let incorrectAnswers = JSON.parse(localStorage.getItem("menu_quiz_incorrect") || "[]");
+let history = JSON.parse(localStorage.getItem("menu_quiz_history") || "[]");
+let questionLimit = 15;
+let reviewModeActive = false;
+
+function shuffleAndLimit() {
+  questionLimit = parseInt(document.getElementById("questionLimit").value) || 15;
+  shuffled = [...fullSet].sort(() => Math.random() - 0.5).slice(0, questionLimit);
+  current = 0;
+  updateCard();
+}
+
+function updateCard() {
+  document.getElementById('question').innerText = shuffled[current][0];
+  document.getElementById('answer').innerText = shuffled[current][1];
+  document.getElementById('answer').style.display = 'none';
+}
+
+function showAnswer() {
+  document.getElementById('answer').style.display = 'block';
+}
+
+function correct() {
+  if (trackScore && !reviewModeActive) {
+    score++;
+    total++;
+    updateScore();
+    saveScore();
+  }
+  nextCard();
+}
+
+function incorrect() {
+  if (trackScore && !reviewModeActive) {
+    total++;
+    incorrectAnswers.push(shuffled[current]);
+    updateScore();
+    saveScore();
+  }
+  nextCard();
+}
+
+function nextCard() {
+  current++;
+  if (current >= shuffled.length) {
+    alert("End of session.");
+    return;
+  }
+  updateCard();
+}
+
+function toggleScore() {
+  trackScore = document.getElementById('trackScoreToggle').checked;
+  document.getElementById('scoreDisplay').style.display = trackScore ? 'block' : 'none';
+}
+
+function resetScore() {
+  if (trackScore) {
+    history.push({ date: new Date().toLocaleString(), score: score, total: total, incorrects: incorrectAnswers.slice() });
+    if (history.length > 10) history.shift();
+    localStorage.setItem("menu_quiz_history", JSON.stringify(history));
+  }
+  score = 0;
+  total = 0;
+  incorrectAnswers = [];
+  updateScore();
+  saveScore();
+  showHistory();
+  drawChart();
+}
+
+function updateScore() {
+  document.getElementById('scoreDisplay').innerText = `Score: ${score}/${total}`;
+}
+
+function saveScore() {
+  localStorage.setItem("menu_quiz_score", score);
+  localStorage.setItem("menu_quiz_total", total);
+  localStorage.setItem("menu_quiz_incorrect", JSON.stringify(incorrectAnswers));
+}
+
+function showHistory() {
+  let output = "<h4>History (last 3 attempts):</h4><ul>";
+  let lastThree = history.slice(-3).reverse();
+  lastThree.forEach(entry => {
+    output += `<li><strong>${entry.date}</strong> — Score: ${entry.score} / ${entry.total}<br>`;
+    output += "<em>Incorrects:</em><ul>";
+    entry.incorrects.forEach(pair => {
+      output += `<li>Q: ${pair[0]}<br>A: ${pair[1]}</li>`;
+    });
+    output += "</ul></li>";
+  });
+  output += "</ul>";
+  document.getElementById("historyDisplay").innerHTML = output;
+}
+
+function drawChart() {
+  const ctx = document.getElementById('scoreChart').getContext('2d');
+  const recent = history.slice(-10);
+  const labels = recent.map(h => h.date);
+  const scores = recent.map(h => h.score);
+  const totals = recent.map(h => h.total);
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Score',
+          data: scores,
+          backgroundColor: 'rgba(40, 167, 69, 0.6)',
+          borderColor: 'rgba(40, 167, 69, 1)',
+          borderWidth: 1
+        },
+        {
+          label: 'Total',
+          data: totals,
+          backgroundColor: 'rgba(0, 123, 255, 0.4)',
+          borderColor: 'rgba(0, 123, 255, 1)',
+          borderWidth: 1
+        }
+      ]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
+function reviewMode() {
+  reviewModeActive = true;
+  shuffled = [...fullSet];
+  current = 0;
+  updateCard();
+}
+
+document.getElementById("questionLimit").addEventListener("change", () => {
+  if (!reviewModeActive) shuffleAndLimit();
+});
+
+window.onload = function() {
+  shuffleAndLimit();
+  updateScore();
+  showHistory();
+  drawChart();
+};
+</script>
+</body>
+</html>
